@@ -108,7 +108,7 @@ function addTrailingPathSep(p: string): string {
   return p.endsWith(path.sep) ? p : p + path.sep;
 }
 
-class Build {
+export class Build {
   public pushManifest?: push.PushManifest;
 
   constructor(
@@ -156,7 +156,11 @@ class Build {
   }
 }
 
-function loadBuilds(root: string, config: ProjectConfig|undefined): Build[] {
+export interface loadBuildsOptions {
+  skipCheck?: boolean
+}
+
+export function loadBuilds(root: string, config: ProjectConfig|undefined, opts?: loadBuildsOptions): Build[] {
   const builds: Build[] = [];
   const entrypoint = (config ? config.entrypoint : null) || 'index.html';
 
@@ -186,24 +190,26 @@ function loadBuilds(root: string, config: ProjectConfig|undefined): Build[] {
   // the same client.
   builds.sort((a, b) => a.compare(b));
 
-  // Sanity check.
-  for (const build of builds) {
-    const requirements = Array.from(build.requirements.values());
-    console.info(
-        `Registered entrypoint "${build.entrypoint}" with capabilities ` +
-        `[${requirements.join(',')}].`);
-    // Note `build.entrypoint` is relative to the server root, but that's not
-    // neccessarily our cwd.
-    // TODO Refactor to make filepath vs URL path and relative vs absolute
-    // values clearer.
-    if (!fs.existsSync(path.join(root, build.entrypoint))) {
-      console.warn(`WARNING: Entrypoint "${build.entrypoint}" does not exist.`);
+  if (!opts || !opts.skipCheck) {
+    // Sanity check.
+    for (const build of builds) {
+      const requirements = Array.from(build.requirements.values());
+      console.info(
+          `Registered entrypoint "${build.entrypoint}" with capabilities ` +
+          `[${requirements.join(',')}].`);
+      // Note `build.entrypoint` is relative to the server root, but that's not
+      // neccessarily our cwd.
+      // TODO Refactor to make filepath vs URL path and relative vs absolute
+      // values clearer.
+      if (!fs.existsSync(path.join(root, build.entrypoint))) {
+        console.warn(`WARNING: Entrypoint "${build.entrypoint}" does not exist.`);
+      }
     }
-  }
-  if (!builds.find((b) => b.requirements.size === 0)) {
-    console.warn(
-        'WARNING: All builds have a capability requirement. ' +
-        'Some browsers will display an error. Consider a fallback build.');
+    if (!builds.find((b) => b.requirements.size === 0)) {
+      console.warn(
+          'WARNING: All builds have a capability requirement. ' +
+          'Some browsers will display an error. Consider a fallback build.');
+    }
   }
 
   return builds;
